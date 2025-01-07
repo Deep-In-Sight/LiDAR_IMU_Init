@@ -46,7 +46,7 @@
 #include <pcl/io/pcd_io.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
-#include <livox_ros_driver/CustomMsg.h>
+// #include <livox_ros_driver/CustomMsg.h>
 #include "preprocess.h"
 #include <ikd-Tree/ikd_Tree.h>
 #include <LI_init/LI_init.h>
@@ -306,7 +306,7 @@ void lasermap_fov_segment() {
 
 double timediff_imu_wrt_lidar = 0.0;
 bool timediff_set_flg = false;
-
+/*
 void livox_pcl_cbk(const livox_ros_driver::CustomMsg::ConstPtr &msg) {
     mtx_buffer.lock();
     scan_count++;
@@ -343,7 +343,7 @@ void livox_pcl_cbk(const livox_ros_driver::CustomMsg::ConstPtr &msg) {
     mtx_buffer.unlock();
     sig_buffer.notify_all();
 }
-
+*/
 void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) {
     mtx_buffer.lock();
     scan_count++;
@@ -860,9 +860,7 @@ int main(int argc, char **argv) {
 
 
     /*** ROS subscribe initialization ***/
-    ros::Subscriber sub_pcl = p_pre->lidar_type == AVIA ? \
-        nh.subscribe(lid_topic, 200000, livox_pcl_cbk) : \
-         nh.subscribe(lid_topic, 200000, standard_pcl_cbk);
+    ros::Subscriber sub_pcl = nh.subscribe(lid_topic, 200000, standard_pcl_cbk);
 
     ros::Publisher pubIMU_sync = nh.advertise<sensor_msgs::Imu>
             ("/livox/imu/async", 100000);

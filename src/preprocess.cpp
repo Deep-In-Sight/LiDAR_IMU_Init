@@ -41,7 +41,7 @@ void Preprocess::set(bool feat_en, int lid_type, double bld, int pfilt_num) {
     blind = bld;
     point_filter_num = pfilt_num;
 }
-
+/*
 void Preprocess::process(const livox_ros_driver::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out) {
     avia_handler(msg);
     *pcl_out = pl_surf;
@@ -111,6 +111,7 @@ void Preprocess::process_cut_frame_livox(const livox_ros_driver::CustomMsg::Cons
         }
     }
 }
+*/
 #define MAX_LINE_NUM 128
 void
 Preprocess::process_cut_frame_pcl2(const sensor_msgs::PointCloud2::ConstPtr &msg, deque<PointCloudXYZI::Ptr> &pcl_out,
@@ -352,7 +353,7 @@ void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointClo
     }
     *pcl_out = pl_surf;
 }
-
+/*
 void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg) {
     pl_surf.clear();
     pl_corn.clear();
@@ -442,7 +443,7 @@ void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg) 
         }
     }
 }
-
+*/
 void Preprocess::l515_handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
     pl_surf.clear();
     pl_corn.clear();

@@ -8,7 +8,6 @@
 #include <thread>
 #include <fstream>
 #include <csignal>
-#include <ros/ros.h>
 #include <so3_math.h>
 #include <Eigen/Eigen>
 #include <common_lib.h>
@@ -16,16 +15,17 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <condition_variable>
-#include <nav_msgs/Odometry.h>
+#include <nav_msgs/msg/odometry.hpp> 
 #include <pcl/common/transforms.h>
 #include <pcl/kdtree/kdtree_flann.h>
-#include <tf/transform_broadcaster.h>
-#include <eigen_conversions/eigen_msg.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <sensor_msgs/Imu.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <lidar_imu_init/States.h>
-#include <geometry_msgs/Vector3.h>
+#include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_eigen/tf2_eigen.hpp>      
+#include <lidar_imu_init/msg/states.hpp> 
+#include <rclcpp/rclcpp.hpp>
 
 /// *************Preconfiguration
 
@@ -75,8 +75,8 @@ class ImuProcess
   void propagation_and_undist(const MeasureGroup &meas, StatesGroup &state_inout, PointCloudXYZI &pcl_in_out);
   void Forward_propagation_without_imu(const MeasureGroup &meas, StatesGroup &state_inout, PointCloudXYZI &pcl_out);
   PointCloudXYZI::Ptr cur_pcl_un_;
-  sensor_msgs::ImuConstPtr last_imu_;
-  deque<sensor_msgs::ImuConstPtr> v_imu_;
+  std::shared_ptr<const sensor_msgs::msg::Imu> last_imu_;
+std::deque<std::shared_ptr<const sensor_msgs::msg::Imu>> v_imu_;
   vector<Pose6D> IMUpose;
   V3D mean_acc;
   V3D mean_gyr;
@@ -104,14 +104,14 @@ ImuProcess::ImuProcess()
   mean_gyr        = V3D(0, 0, 0);
   angvel_last     = Zero3d;
   last_imu_.reset(new sensor_msgs::Imu());
-  fout_imu.open(DEBUG_FILE_DIR("imu.txt"),ios::out);
+  fout_imu.open("imu.txt", std::ios::out);
 }
 
 ImuProcess::~ImuProcess() {}
 
 void ImuProcess::Reset() 
 {
-  ROS_WARN("Reset ImuProcess");
+  RCLCPP_WARN(rclcpp::get_logger("ImuProcess"), "Reset ImuProcess");
   mean_acc      = V3D(0, 0, -1.0);
   mean_gyr      = V3D(0, 0, 0);
   angvel_last       = Zero3d;
@@ -162,7 +162,7 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, StatesGroup &state_inout, in
 {
   /** 1. initializing the gravity, gyro bias, acc and gyro covariance
    ** 2. normalize the acceleration measurements to unit gravity **/
-  ROS_INFO("IMU Initializing: %.1f %%", double(N) / MAX_INI_COUNT * 100);
+  RCLCPP_INFO(rclcpp::get_logger("ImuProcess"), "IMU Initializing: %.1f %%", double(N) / MAX_INI_COUNT * 100);
   V3D cur_acc, cur_gyr;
   
   if (b_first_frame_)
@@ -206,7 +206,7 @@ void ImuProcess::Forward_propagation_without_imu(const MeasureGroup &meas, State
     pcl_out = *(meas.lidar);
     /*** sort point clouds by offset time ***/
     const double &pcl_beg_time = meas.lidar_beg_time;
-    sort(pcl_out.points.begin(), pcl_out.points.end(), time_list);
+    std::sort(pcl_out.points.begin(), pcl_out.points.end(), time_list);
     const double &pcl_end_offset_time = pcl_out.points.back().curvature / double(1000);
 
     MD(DIM_STATE, DIM_STATE) F_x, cov_w;
@@ -272,7 +272,7 @@ void ImuProcess::propagation_and_undist(const MeasureGroup &meas, StatesGroup &s
   pcl_out = *(meas.lidar);
   auto v_imu = meas.imu;
   v_imu.push_front(last_imu_);
-  double imu_end_time = v_imu.back()->header.stamp.toSec();
+  double imu_end_time = rclcpp::Time(v_imu.back()->header.stamp).seconds();
   double pcl_beg_time, pcl_end_time;
 
   if (lidar_type == L515)
@@ -438,13 +438,14 @@ void ImuProcess::Process(const MeasureGroup &meas, StatesGroup &stat, PointCloud
                 cov_acc = cov_acc_scale;
                 cov_gyr = cov_gyr_scale;
 
-                ROS_INFO("IMU Initialization Done: Gravity: %.4f %.4f %.4f, Acc norm: %.4f", stat.gravity[0], stat.gravity[1], stat.gravity[2], mean_acc.norm());
+                RCLCPP_INFO(rclcpp::get_logger("ImuProcess"), "IMU Initialization Done: Gravity: %.4f %.4f %.4f, Acc norm: %.4f", 
+                    stat.gravity[0], stat.gravity[1], stat.gravity[2], mean_acc.norm());
                 IMU_mean_acc_norm = mean_acc.norm();
             }
         }
         else{
             cout << endl;
-            printf(BOLDMAGENTA "[Refinement] Switch to LIO mode, online refinement begins.\n\n" RESET);
+            RCLCPP_INFO(rclcpp::get_logger("ImuProcess"), "[Refinement] Switch to LIO mode, online refinement begins.");
             last_imu_   = meas.imu.back();
             imu_need_init_ = false;
             cov_acc = cov_acc_scale;
