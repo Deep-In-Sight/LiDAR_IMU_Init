@@ -34,18 +34,19 @@
 // POSSIBILITY OF SUCH DAMAGE.
 #include <omp.h>
 #include "IMU_Processing.hpp"
-#include "ros/package.h"
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <unistd.h>
 #include <Python.h>
 #include <Eigen/Core>
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <algorithm>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
+#include <tf2/LinearMath/Transform.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 // #include <livox_ros_driver/CustomMsg.h>
 #include "preprocess.h"
 #include <ikd-Tree/ikd_Tree.h>
@@ -102,7 +103,7 @@ ofstream fout_result;
 vector<BoxPointType> cub_needrm;
 deque<PointCloudXYZI::Ptr> lidar_buffer;
 deque<double> time_buffer;
-deque<sensor_msgs::Imu::Ptr> imu_buffer;
+deque<sensor_msgs::msg::Imu::Ptr> imu_buffer;
 vector<vector<int>> pointSearchInd_surf;
 vector<PointVector> Nearest_Points;
 bool point_selected_surf[100000] = {0};
@@ -140,11 +141,11 @@ PointCloudXYZI::Ptr pcl_wait_save(new PointCloudXYZI());
 pcl::PCDWriter pcd_writer;
 string all_points_dir;
 
-nav_msgs::Path path;
-nav_msgs::Odometry odomAftMapped;
+nav_msgs::msg::Path path;
+nav_msgs::msg::Odometry odomAftMapped;
 geometry_msgs::Quaternion geoQuat;
 geometry_msgs::PoseStamped msg_body_pose;
-sensor_msgs::Imu IMU_sync;
+sensor_msgs::msg::Imu IMU_sync;
 
 shared_ptr<Preprocess> p_pre(new Preprocess());
 shared_ptr<LI_Init> Init_LI(new LI_Init());
@@ -306,54 +307,17 @@ void lasermap_fov_segment() {
 
 double timediff_imu_wrt_lidar = 0.0;
 bool timediff_set_flg = false;
-/*
-void livox_pcl_cbk(const livox_ros_driver::CustomMsg::ConstPtr &msg) {
+
+void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::ConstPtr &msg) {
     mtx_buffer.lock();
     scan_count++;
-    if (msg->header.stamp.toSec() < last_timestamp_lidar) {
-        ROS_WARN("lidar loop back, clear buffer");
-        lidar_buffer.clear();
-        time_buffer.clear();
-    }
-    last_timestamp_lidar = msg->header.stamp.toSec();
-
-    if (abs(last_timestamp_imu - last_timestamp_lidar) > 1.0 && !timediff_set_flg && !imu_buffer.empty()) {
-        timediff_set_flg = true;
-        timediff_imu_wrt_lidar = last_timestamp_imu - last_timestamp_lidar;
-        printf("Self sync IMU and LiDAR, HARD time lag is %.10lf \n \n", timediff_imu_wrt_lidar);
-    }
-
-    if (cut_frame) {
-        deque<PointCloudXYZI::Ptr> ptr;
-        deque<double> timestamp_lidar;
-        p_pre->process_cut_frame_livox(msg, ptr, timestamp_lidar, cut_frame_num, scan_count);
-
-        while (!ptr.empty() && !timestamp_lidar.empty()) {
-            lidar_buffer.push_back(ptr.front());
-            ptr.pop_front();
-            time_buffer.push_back(timestamp_lidar.front() / double(1000));//unit:s
-            timestamp_lidar.pop_front();
-        }
-    } else {
-        PointCloudXYZI::Ptr ptr(new PointCloudXYZI());
-        p_pre->process(msg, ptr);
-        lidar_buffer.push_back(ptr);
-        time_buffer.push_back(last_timestamp_lidar);
-    }
-    mtx_buffer.unlock();
-    sig_buffer.notify_all();
-}
-*/
-void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) {
-    mtx_buffer.lock();
-    scan_count++;
-    if (msg->header.stamp.toSec() < last_timestamp_lidar) {
+    if (rclcpp::Time(msg->header.stamp).seconds() < last_timestamp_lidar) {
         ROS_ERROR("lidar loop back, clear Lidar buffer.");
         lidar_buffer.clear();
         time_buffer.clear();
     }
 
-    last_timestamp_lidar = msg->header.stamp.toSec();
+    last_timestamp_lidar = rclcpp::Time(msg->header.stamp).seconds();
     if (abs(last_timestamp_imu - last_timestamp_lidar) > 1.0 && !timediff_set_flg && !imu_buffer.empty()) {
         timediff_set_flg = true;
         timediff_imu_wrt_lidar = last_timestamp_imu - last_timestamp_lidar;
@@ -374,21 +338,21 @@ void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) {
         PointCloudXYZI::Ptr ptr(new PointCloudXYZI());
         p_pre->process(msg, ptr);
         lidar_buffer.push_back(ptr);
-        time_buffer.push_back(msg->header.stamp.toSec());
+        time_buffer.push_back(rclcpp::Time(msg->header.stamp).seconds());
     }
     mtx_buffer.unlock();
     sig_buffer.notify_all();
 }
 
 
-void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in, const ros::Publisher &pubIMU_sync) {
+void imu_cbk(const sensor_msgs::msg::Imu::ConstPtr &msg_in, const ros::Publisher &pubIMU_sync) {
     publish_count++;
     mtx_buffer.lock();
 
 
     static double IMU_period, time_msg_in, last_time_msg_in;
     static int imu_cnt = 0;
-    time_msg_in = msg_in->header.stamp.toSec();
+    time_msg_in = rclcpp::Time(msg_in->header.stamp).seconds();
 
 
     if (imu_cnt < 100) {
@@ -410,11 +374,11 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in, const ros::Publisher &pub
     last_time_msg_in = time_msg_in;
 
 
-    sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(*msg_in));
+    sensor_msgs::msg::Imu::Ptr msg(new sensor_msgs::msg::Imu(*msg_in));
 
     //IMU Time Compensation
-    msg->header.stamp = ros::Time().fromSec(msg->header.stamp.toSec() - timediff_imu_wrt_lidar - time_lag_IMU_wtr_lidar);
-    double timestamp = msg->header.stamp.toSec();
+    msg->header.stamp = rclcpp::Time(msg->header.stamp) - rclcpp::Duration::from_seconds(timediff_imu_wrt_lidar - time_lag_IMU_wtr_lidar);
+    double timestamp = rclcpp::Time(msg->header.stamp).seconds();
 
     if (timestamp < last_timestamp_imu) {
         ROS_WARN("IMU loop back, clear IMU buffer.");
@@ -465,10 +429,10 @@ bool sync_packages(MeasureGroup &meas) {
 
 
     /** push imu data, and pop from imu buffer **/
-    double imu_time = imu_buffer.front()->header.stamp.toSec();
+    double imu_time = imu_buffer.front()->rclcpp::Time(header.stamp).seconds();
     meas.imu.clear();
     while ((!imu_buffer.empty()) && (imu_time < lidar_end_time)) {
-        imu_time = imu_buffer.front()->header.stamp.toSec();
+        imu_time = imu_buffer.front()->rclcpp::Time(header.stamp).seconds();
         if (imu_time > lidar_end_time) break;
         meas.imu.push_back(imu_buffer.front());
         imu_buffer.pop_front();
@@ -575,7 +539,7 @@ void publish_frame_world(const ros::Publisher &pubLaserCloudFullRes) {
                                 &laserCloudWorld->points[i]);
         }
 
-        sensor_msgs::PointCloud2 laserCloudmsg;
+        sensor_msgs::msg::PointCloud2 laserCloudmsg;
         if (lidar_type == L515)
             pcl::toROSMsg(*laserCloudWorldRGB, laserCloudmsg);
         else
@@ -615,7 +579,7 @@ void publish_frame_world(const ros::Publisher &pubLaserCloudFullRes) {
 
 void publish_frame_body(const ros::Publisher &pubLaserCloudFullRes_body) {
     PointCloudXYZI::Ptr laserCloudFullRes(feats_undistort);
-    sensor_msgs::PointCloud2 laserCloudmsg;
+    sensor_msgs::msg::PointCloud2 laserCloudmsg;
     pcl::toROSMsg(*feats_undistort, laserCloudmsg);
     laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
     laserCloudmsg.header.frame_id = "camera_init";
@@ -628,7 +592,7 @@ void publish_effect_world(const ros::Publisher &pubLaserCloudEffect) {
     for (int i = 0; i < effect_feat_num; i++) {
         pointBodyToWorld(&laserCloudOri->points[i], &laserCloudWorld->points[i]);
     }
-    sensor_msgs::PointCloud2 laserCloudFullRes3;
+    sensor_msgs::msg::PointCloud2 laserCloudFullRes3;
     pcl::toROSMsg(*laserCloudWorld, laserCloudFullRes3);
     laserCloudFullRes3.header.stamp = ros::Time().fromSec(lidar_end_time);
     laserCloudFullRes3.header.frame_id = "camera_init";
@@ -636,7 +600,7 @@ void publish_effect_world(const ros::Publisher &pubLaserCloudEffect) {
 }
 
 void publish_map(const ros::Publisher &pubLaserCloudMap) {
-    sensor_msgs::PointCloud2 laserCloudMap;
+    sensor_msgs::msg::PointCloud2 laserCloudMap;
     pcl::toROSMsg(*featsFromMap, laserCloudMap);
     laserCloudMap.header.stamp = ros::Time().fromSec(lidar_end_time);
     laserCloudMap.header.frame_id = "camera_init";
@@ -662,7 +626,7 @@ void set_posestamp(T &out) {
     out.orientation.w = geoQuat.w;
 }
 
-void publish_odometry(const ros::Publisher &pubOdomAftMapped) {
+void publish_odometry(const rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr &pubOdomAftMapped) {
     odomAftMapped.header.frame_id = "camera_init";
     odomAftMapped.child_frame_id = "aft_mapped";
     odomAftMapped.header.stamp = ros::Time().fromSec(lidar_end_time);
@@ -670,7 +634,7 @@ void publish_odometry(const ros::Publisher &pubOdomAftMapped) {
 
     pubOdomAftMapped.publish(odomAftMapped);
 
-    static tf::TransformBroadcaster br;
+    static tf2_ros::TransformBroadcaster br;
     tf::Transform transform;
     tf::Quaternion q;
     transform.setOrigin(tf::Vector3(odomAftMapped.pose.pose.position.x, \
@@ -860,26 +824,27 @@ int main(int argc, char **argv) {
 
 
     /*** ROS subscribe initialization ***/
-    ros::Subscriber sub_pcl = nh.subscribe(lid_topic, 200000, standard_pcl_cbk);
+    auto sub_pcl = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+        lid_topic, 200000, std::bind(&YourClass::standard_pcl_cbk, this, std::placeholders::_1));
 
-    ros::Publisher pubIMU_sync = nh.advertise<sensor_msgs::Imu>
-            ("/livox/imu/async", 100000);
-    ros::Subscriber sub_imu = nh.subscribe<sensor_msgs::Imu>
-            (imu_topic, 200000, boost::bind(&imu_cbk, _1, pubIMU_sync));
+    auto pubIMU_sync = this->create_publisher<sensor_msgs::msg::Imu>(
+        "/livox/imu/async", 100000);
 
+    auto sub_imu = this->create_subscription<sensor_msgs::msg::Imu>(
+        imu_topic, 200000, std::bind(&YourClass::imu_cbk, this, std::placeholders::_1, pubIMU_sync));
 
-    ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2>
-            ("/cloud_registered", 100000);
-    ros::Publisher pubLaserCloudFullRes_body = nh.advertise<sensor_msgs::PointCloud2>
-            ("/cloud_registered_body", 100000);
-    ros::Publisher pubLaserCloudEffect = nh.advertise<sensor_msgs::PointCloud2>
-            ("/cloud_effected", 100000);
-    ros::Publisher pubLaserCloudMap = nh.advertise<sensor_msgs::PointCloud2>
-            ("/Laser_map", 100000);
-    ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry>
-            ("/aft_mapped_to_init", 100000);
-    ros::Publisher pubPath = nh.advertise<nav_msgs::Path>
-            ("/path", 100000);
+    auto pubLaserCloudFullRes = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+        "/cloud_registered", 100000);
+    auto pubLaserCloudFullRes_body = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+        "/cloud_registered_body", 100000);
+    auto pubLaserCloudEffect = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+        "/cloud_effected", 100000);
+    auto pubLaserCloudMap = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+        "/Laser_map", 100000);
+    auto pubOdomAftMapped = this->create_publisher<nav_msgs::msg::Odometry>(
+        "/aft_mapped_to_init", 100000);
+    auto pubPath = this->create_publisher<nav_msgs::msg::Path>(
+        "/path", 100000);
 
 //------------------------------------------------------------------------------------------------------
     signal(SIGINT, SigHandle);
@@ -1178,7 +1143,7 @@ int main(int argc, char **argv) {
                     print_refine_result();
                     fout_result << "Refinement result:" << endl;
                     fileout_calib_result();
-                    string path = ros::package::getPath("lidar_imu_init");
+                    std::string path = ament_index_cpp::get_package_share_directory("lidar_imu_init");
                     path += "/result/Initialization_result.txt";
                     cout << endl  << "Initialization and refinement result is written to " << endl << BOLDGREEN << path << RESET <<endl;
                 }
@@ -1214,7 +1179,7 @@ int main(int argc, char **argv) {
 
                     time_lag_IMU_wtr_lidar = Init_LI->get_total_time_lag(); //Compensate IMU's time in the buffer
                     for (int i = 0; i < imu_buffer.size(); i++) {
-                        imu_buffer[i]->header.stamp = ros::Time().fromSec(imu_buffer[i]->header.stamp.toSec()- time_lag_IMU_wtr_lidar);
+                        imu_buffer[i]->header.stamp = rclcpp::Time(imu_buffer[i]->header.stamp)- rclcpp::Duration::from_seconds(time_lag_IMU_wtr_lidar);
                     }
 
                     p_imu->imu_en = imu_en;

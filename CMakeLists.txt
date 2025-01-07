@@ -65,6 +65,7 @@ find_package(OpenCV REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
@@ -88,6 +89,7 @@ set(dependencies
   PCL
   Ceres
   tf2_eigen
+  tf2_geometry_msgs
   rosidl_default_runtime
 )
 

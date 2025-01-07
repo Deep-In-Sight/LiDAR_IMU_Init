@@ -51,13 +51,13 @@ void LI_Init::fout_before_filter() {
     }
 }
 
-void LI_Init::push_ALL_IMU_CalibState(const sensor_msgs::Imu::ConstPtr &msg, const double &mean_acc_norm) {
+void LI_Init::push_ALL_IMU_CalibState(const sensor_msgs::msg::Imu::SharedPtr &msg, const double &mean_acc_norm) {
     CalibState IMUstate;
     IMUstate.ang_vel = V3D(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
     IMUstate.linear_acc =
             V3D(msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z) / mean_acc_norm *
             G_m_s2;
-    IMUstate.timeStamp = msg->header.stamp.toSec();
+    IMUstate.timeStamp = rclcpp::Time(msg->header.stamp).seconds();
     IMU_state_group_ALL.push_back(IMUstate);
 }
 

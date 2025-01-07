@@ -9,7 +9,9 @@
 #include <so3_math.h>
 #include <Eigen/Eigen>
 #include <condition_variable>
-#include <eigen_conversions/eigen_msg.h>
+#include <tf2_eigen/tf2_eigen.hpp>
+#include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <common_lib.h>
 #include <algorithm>
 #include <ceres/ceres.h>
@@ -226,7 +228,7 @@ public:
 
     void plot_result();
 
-    void push_ALL_IMU_CalibState(const sensor_msgs::Imu::ConstPtr &msg, const double &mean_acc_norm);
+    void push_ALL_IMU_CalibState(const sensor_msgs::msg::Imu::SharedPtr &msg, const double &mean_acc_norm);
 
     void push_IMU_CalibState(const V3D &omg, const V3D &acc, const double &timestamp);
 
