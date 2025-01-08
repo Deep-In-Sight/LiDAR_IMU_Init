@@ -126,8 +126,8 @@ class Preprocess
   
   // void process(const livox_ros_driver::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
   // void process_cut_frame_livox(const livox_ros_driver::CustomMsg::ConstPtr &msg, deque<PointCloudXYZI::Ptr> &pcl_out, deque<double> &time_lidar, const int required_frame_num, int scan_count);
-  void process(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, PointCloudXYZI::Ptr &pcl_out);
-  void process_cut_frame_pcl2(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, deque<PointCloudXYZI::Ptr> &pcl_out, deque<double> &time_lidar, const int required_frame_num, int scan_count);
+  void process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, PointCloudXYZI::Ptr &pcl_out);
+  void process_cut_frame_pcl2(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, deque<PointCloudXYZI::Ptr> &pcl_out, deque<double> &time_lidar, const int required_frame_num, int scan_count);
   void set(bool feat_en, int lid_type, double bld, int pfilt_num);
 
   // sensor_msgs::msg::PointCloud2::ConstPtr pointcloud;
@@ -140,11 +140,13 @@ class Preprocess
     
 
   private:
-  // void avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg);
-  void oust_handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
-  void velodyne_handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
-  void velodyne_handler_kitti(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
-  void l515_handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+#ifdef USE_LIVOX
+  void avia_handler(const livox_ros_driver::CustomMsg::UniquePtr &msg);
+#endif
+  void oust_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg);
+  void velodyne_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg);
+  void velodyne_handler_kitti(const sensor_msgs::msg::PointCloud2::UniquePtr &msg);
+  void l515_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg);
   void give_feature(PointCloudXYZI &pl, vector<orgtype> &types);
   void pub_func(PointCloudXYZI &pl, const rclcpp::Time &ct);
   int  plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, uint i, uint &i_nex, Eigen::Vector3d &curr_direct);

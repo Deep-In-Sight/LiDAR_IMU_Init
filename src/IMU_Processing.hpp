@@ -26,6 +26,7 @@
 #include <tf2_eigen/tf2_eigen.hpp>      
 #include <lidar_imu_init/msg/states.hpp> 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/logging.hpp>
 
 /// *************Preconfiguration
 
@@ -76,7 +77,7 @@ class ImuProcess
   void Forward_propagation_without_imu(const MeasureGroup &meas, StatesGroup &state_inout, PointCloudXYZI &pcl_out);
   PointCloudXYZI::Ptr cur_pcl_un_;
   std::shared_ptr<const sensor_msgs::msg::Imu> last_imu_;
-std::deque<std::shared_ptr<const sensor_msgs::msg::Imu>> v_imu_;
+  // std::deque<std::shared_ptr<const sensor_msgs::msg::Imu>> v_imu_;
   vector<Pose6D> IMUpose;
   V3D mean_acc;
   V3D mean_gyr;
@@ -117,7 +118,7 @@ void ImuProcess::Reset()
   angvel_last       = Zero3d;
   imu_need_init_    = true;
   init_iter_num     = 1;
-  v_imu_.clear();
+  // v_imu_.clear();
   IMUpose.clear();
   last_imu_.reset(new sensor_msgs::msg::Imu());
   cur_pcl_un_.reset(new PointCloudXYZI());
@@ -271,7 +272,9 @@ void ImuProcess::propagation_and_undist(const MeasureGroup &meas, StatesGroup &s
   /*** add the imu of the last frame-tail to the current frame-head ***/
   pcl_out = *(meas.lidar);
   auto v_imu = meas.imu;
-  v_imu.push_front(last_imu_);
+  // v_imu.push_front(last_imu_);
+  v_imu.push_front(std::const_pointer_cast<sensor_msgs::msg::Imu>(last_imu_));
+
   double imu_end_time = rclcpp::Time(v_imu.back()->header.stamp).seconds();
   double pcl_beg_time, pcl_end_time;
 
@@ -421,7 +424,7 @@ void ImuProcess::Process(const MeasureGroup &meas, StatesGroup &stat, PointCloud
   if (imu_en)
   {
     if(meas.imu.empty())  return;
-    ROS_ASSERT(meas.lidar != nullptr);
+    assert(meas.lidar != nullptr);
 
     if (imu_need_init_)
     {

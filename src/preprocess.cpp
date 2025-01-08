@@ -114,7 +114,7 @@ void Preprocess::process_cut_frame_livox(const livox_ros_driver::CustomMsg::Cons
 */
 #define MAX_LINE_NUM 128
 void
-Preprocess::process_cut_frame_pcl2(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, deque<PointCloudXYZI::Ptr> &pcl_out,
+Preprocess::process_cut_frame_pcl2(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, deque<PointCloudXYZI::Ptr> &pcl_out,
                                    deque<double> &time_lidar, const int required_frame_num, int scan_count) {
     pl_surf.clear();
     pl_corn.clear();
@@ -335,7 +335,7 @@ Preprocess::process_cut_frame_pcl2(const sensor_msgs::msg::PointCloud2::SharedPt
     }
 }
 
-void Preprocess::process(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, PointCloudXYZI::Ptr &pcl_out) {
+void Preprocess::process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, PointCloudXYZI::Ptr &pcl_out) {
     switch (lidar_type) {
         case OUSTER:
             oust_handler(msg);
@@ -353,8 +353,8 @@ void Preprocess::process(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, Po
     }
     *pcl_out = pl_surf;
 }
-/*
-void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg) {
+#ifdef USE_LIVOX
+void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::UniquePtr &msg) {
     pl_surf.clear();
     pl_corn.clear();
     pl_full.clear();
@@ -443,8 +443,9 @@ void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg) 
         }
     }
 }
-*/
-void Preprocess::l515_handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg) {
+
+#endif
+void Preprocess::l515_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg) {
     pl_surf.clear();
     pl_corn.clear();
     pl_full.clear();
@@ -476,7 +477,7 @@ void Preprocess::l515_handler(const sensor_msgs::msg::PointCloud2::SharedPtr &ms
     }
 }
 
-void Preprocess::oust_handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg) {
+void Preprocess::oust_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg) {
     pl_surf.clear();
     pl_corn.clear();
     pl_full.clear();
@@ -559,7 +560,7 @@ void Preprocess::oust_handler(const sensor_msgs::msg::PointCloud2::SharedPtr &ms
     }
 }
 
-void Preprocess::velodyne_handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg) {
+void Preprocess::velodyne_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg) {
     pl_surf.clear();
     pl_corn.clear();
     pl_full.clear();
@@ -700,7 +701,7 @@ void Preprocess::velodyne_handler(const sensor_msgs::msg::PointCloud2::SharedPtr
     }
 }
 
-void Preprocess::velodyne_handler_kitti(const sensor_msgs::msg::PointCloud2::SharedPtr &msg) {
+void Preprocess::velodyne_handler_kitti(const sensor_msgs::msg::PointCloud2::UniquePtr &msg) {
     pl_surf.clear();
     pl_full.clear();
     pcl::fromROSMsg(*msg, pl_full);
