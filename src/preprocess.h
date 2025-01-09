@@ -1,7 +1,6 @@
-#ifndef PREPROCESS_H
-#define PREPROCESS_H
+#pragma once
 
-#include "common_lib.h"
+#include <common_lib.h>
 #include <rclcpp/rclcpp.hpp>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -163,4 +162,3 @@ class Preprocess
   double smallp_intersect, smallp_ratio;
   double vx, vy, vz;
 };
-#endif

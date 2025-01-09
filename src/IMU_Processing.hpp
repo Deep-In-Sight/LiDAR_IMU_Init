@@ -1,5 +1,4 @@
-#ifndef _IMU_PROCESSING_HPP
-#define _IMU_PROCESSING_HPP
+#pragma once
 
 #include <cmath>
 #include <math.h>
@@ -463,4 +462,3 @@ void ImuProcess::Process(const MeasureGroup &meas, StatesGroup &stat, PointCloud
      Forward_propagation_without_imu(meas, stat, *cur_pcl_un_);
   }
 }
-#endif

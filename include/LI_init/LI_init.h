@@ -1,5 +1,4 @@
-#ifndef LI_INIT_H
-#define LI_INIT_H
+#pragma once
 
 #include <cmath>
 #include <deque>
@@ -12,11 +11,11 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
-#include <common_lib.h>
 #include <algorithm>
 #include <ceres/ceres.h>
 #include <sys/time.h>
 #include "matplotlibcpp.h"
+#include <common_lib.h>
 
 #define FILE_DIR(name)     (string(string(ROOT_DIR) + "Log/"+ name))
 
@@ -356,5 +355,3 @@ private:
     double time_lag_2;            //Time offset estimated by unified optimization
     int lag_IMU_wtr_Lidar;        //positive: timestamp of IMU is larger than that of LiDAR
 };
-
-#endif

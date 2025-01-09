@@ -69,6 +69,9 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
+if (USE_LIVOX)
+  find_package(livox_ros_driver2 REQUIRED)
+endif()
 
 set(dependencies
   rclcpp
@@ -93,6 +96,10 @@ set(dependencies
   rosidl_default_runtime
 )
 
+if (USE_LIVOX)
+  list(APPEND dependencies livox_ros_driver2)
+endif()
+
 set(msg_files
   "msg/Pose6D.msg"
   "msg/States.msg"
@@ -116,11 +123,14 @@ add_executable(li_init
   src/laserMapping.cpp 
   include/ikd-Tree/ikd_Tree.cpp 
   include/LI_init/LI_init.cpp 
+  include/time_utils.cpp
   src/preprocess.cpp
 )
 
 target_include_directories(li_init PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+  $<INSTALL_INTERFACE:include>
   ${PCL_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
@@ -140,7 +150,6 @@ ament_target_dependencies(li_init ${dependencies})
 
 # Install targets and include directories
 install(TARGETS li_init DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
-install(DIRECTORY config launch rviz DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config launch rviz_cfg DESTINATION share/${PROJECT_NAME})
 
 ament_package()
