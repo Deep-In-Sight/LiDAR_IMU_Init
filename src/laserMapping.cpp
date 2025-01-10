@@ -155,6 +155,19 @@ geometry_msgs::msg::PoseStamped msg_body_pose;
 shared_ptr<Preprocess> p_pre(new Preprocess());
 shared_ptr<LI_Init> Init_LI(new LI_Init());
 
+#ifdef USE_LIVOX
+rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr sub_pcl_livox_;
+#else
+rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_pc_;
+#endif
+rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu;
+rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFullRes;
+rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFullRes_body;
+rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudEffect;
+rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudMap;
+rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdomAftMapped;
+rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pubPath;
+std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
 
 float calc_dist(PointType p1, PointType p2) {
     float d = (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y) + (p1.z - p2.z) * (p1.z - p2.z);
@@ -776,78 +789,76 @@ void init_parameters(std::shared_ptr<rclcpp::Node> node)
     node->declare_parameter<int>("max_iteration", 4);
     node->declare_parameter<int>("point_filter_num", 2);
     node->declare_parameter<std::string>("map_file_path", "");
-    node->declare_parameter<std::string>("common/lid_topic", "/livox/lidar");
-    node->declare_parameter<std::string>("common/imu_topic", "/livox/imu");
-    node->declare_parameter<double>("mapping/filter_size_surf", 0.5);
-    node->declare_parameter<double>("mapping/filter_size_map", 0.5);
+    node->declare_parameter<std::string>("common.lid_topic", "/livox/lidar");
+    node->declare_parameter<std::string>("common.imu_topic", "/livox/imu");
+    node->declare_parameter<double>("mapping.filter_size_surf", 0.5);
+    node->declare_parameter<double>("mapping.filter_size_map", 0.5);
     node->declare_parameter<double>("cube_side_length", 200);
-    node->declare_parameter<float>("mapping/det_range", 300.f);
-    node->declare_parameter<double>("mapping/gyr_cov", 0.1);
-    node->declare_parameter<double>("mapping/acc_cov", 0.1);
-    node->declare_parameter<double>("mapping/grav_cov", 0.001);
-    node->declare_parameter<double>("mapping/b_gyr_cov", 0.0001);
-    node->declare_parameter<double>("mapping/b_acc_cov", 0.0001);
-    node->declare_parameter<double>("preprocess/blind", 1.0);
-    node->declare_parameter<int>("preprocess/lidar_type", AVIA);
-    node->declare_parameter<int>("preprocess/scan_line", 16);
-    node->declare_parameter<bool>("preprocess/feature_extract_en", false);
-    node->declare_parameter<bool>("initialization/cut_frame", true);
-    node->declare_parameter<int>("initialization/cut_frame_num", 1);
-    node->declare_parameter<int>("initialization/orig_odom_freq", 10);
-    node->declare_parameter<double>("initialization/online_refine_time", 20.0);
-    node->declare_parameter<double>("initialization/mean_acc_norm", 9.81);
-    node->declare_parameter<double>("initialization/data_accum_length", 300);
-    node->declare_parameter<std::vector<double>>("initialization/Rot_LI_cov", std::vector<double>());
-    node->declare_parameter<std::vector<double>>("initialization/Trans_LI_cov", std::vector<double>());
-    node->declare_parameter<bool>("publish/path_en", true);
-    node->declare_parameter<bool>("publish/scan_publish_en", true);
-    node->declare_parameter<bool>("publish/dense_publish_en", true);
-    node->declare_parameter<bool>("publish/scan_bodyframe_pub_en", true);
+    node->declare_parameter<float>("mapping.det_range", 300.f);
+    node->declare_parameter<double>("mapping.gyr_cov", 0.1);
+    node->declare_parameter<double>("mapping.acc_cov", 0.1);
+    node->declare_parameter<double>("mapping.grav_cov", 0.001);
+    node->declare_parameter<double>("mapping.b_gyr_cov", 0.0001);
+    node->declare_parameter<double>("mapping.b_acc_cov", 0.0001);
+    node->declare_parameter<double>("preprocess.blind", 1.0);
+    node->declare_parameter<int>("preprocess.lidar_type", AVIA);
+    node->declare_parameter<int>("preprocess.scan_line", 16);
+    node->declare_parameter<bool>("preprocess.feature_extract_en", false);
+    node->declare_parameter<bool>("initialization.cut_frame", true);
+    node->declare_parameter<int>("initialization.cut_frame_num", 1);
+    node->declare_parameter<int>("initialization.orig_odom_freq", 10);
+    node->declare_parameter<double>("initialization.online_refine_time", 20.0);
+    node->declare_parameter<double>("initialization.mean_acc_norm", 9.81);
+    node->declare_parameter<double>("initialization.data_accum_length", 300);
+    node->declare_parameter<std::vector<double>>("initialization.Rot_LI_cov", std::vector<double>());
+    node->declare_parameter<std::vector<double>>("initialization.Trans_LI_cov", std::vector<double>());
+    node->declare_parameter<bool>("publish.path_en", true);
+    node->declare_parameter<bool>("publish.scan_publish_en", true);
+    node->declare_parameter<bool>("publish.dense_publish_en", true);
+    node->declare_parameter<bool>("publish.scan_bodyframe_pub_en", true);
     node->declare_parameter<bool>("runtime_pos_log_enable", false);
-    node->declare_parameter<bool>("pcd_save/pcd_save_en", false);
-    node->declare_parameter<int>("pcd_save/interval", -1);
+    node->declare_parameter<bool>("pcd_save.pcd_save_en", false);
+    node->declare_parameter<int>("pcd_save.interval", -1);
 
     node->get_parameter("max_iteration", NUM_MAX_ITERATIONS);
     node->get_parameter("point_filter_num", p_pre->point_filter_num);
     node->get_parameter("map_file_path", map_file_path);
-    node->get_parameter("common/lid_topic", lid_topic);
-    node->get_parameter("common/imu_topic", imu_topic);
-    node->get_parameter("mapping/filter_size_surf", filter_size_surf_min);
-    node->get_parameter("mapping/filter_size_map", filter_size_map_min);
+    node->get_parameter("common.lid_topic", lid_topic);
+    node->get_parameter("common.imu_topic", imu_topic);
+    node->get_parameter("mapping.filter_size_surf", filter_size_surf_min);
+    node->get_parameter("mapping.filter_size_map", filter_size_map_min);
     node->get_parameter("cube_side_length", cube_len);
-    node->get_parameter("mapping/det_range", DET_RANGE);
-    node->get_parameter("mapping/gyr_cov", gyr_cov);
-    node->get_parameter("mapping/acc_cov", acc_cov);
-    node->get_parameter("mapping/grav_cov", grav_cov);
-    node->get_parameter("mapping/b_gyr_cov", b_gyr_cov);
-    node->get_parameter("mapping/b_acc_cov", b_acc_cov);
-    node->get_parameter("preprocess/blind", p_pre->blind);
-    node->get_parameter("preprocess/lidar_type", lidar_type);
-    node->get_parameter("preprocess/scan_line", p_pre->N_SCANS);
-    node->get_parameter("preprocess/feature_extract_en", p_pre->feature_enabled);
-    node->get_parameter("initialization/cut_frame", cut_frame);
-    node->get_parameter("initialization/cut_frame_num", cut_frame_num);
-    node->get_parameter("initialization/orig_odom_freq", orig_odom_freq);
-    node->get_parameter("initialization/online_refine_time", online_refine_time);
-    node->get_parameter("initialization/mean_acc_norm", mean_acc_norm);
-    node->get_parameter("initialization/data_accum_length", Init_LI->data_accum_length);
-    node->get_parameter("initialization/Rot_LI_cov", Rot_LI_cov);
-    node->get_parameter("initialization/Trans_LI_cov", Trans_LI_cov);
-    node->get_parameter("publish/path_en", path_en);
-    node->get_parameter("publish/scan_publish_en", scan_pub_en);
-    node->get_parameter("publish/dense_publish_en", dense_pub_en);
-    node->get_parameter("publish/scan_bodyframe_pub_en", scan_body_pub_en);
+    node->get_parameter("mapping.det_range", DET_RANGE);
+    node->get_parameter("mapping.gyr_cov", gyr_cov);
+    node->get_parameter("mapping.acc_cov", acc_cov);
+    node->get_parameter("mapping.grav_cov", grav_cov);
+    node->get_parameter("mapping.b_gyr_cov", b_gyr_cov);
+    node->get_parameter("mapping.b_acc_cov", b_acc_cov);
+    node->get_parameter("preprocess.blind", p_pre->blind);
+    node->get_parameter("preprocess.lidar_type", lidar_type);
+    node->get_parameter("preprocess.scan_line", p_pre->N_SCANS);
+    node->get_parameter("preprocess.feature_extract_en", p_pre->feature_enabled);
+    node->get_parameter("initialization.cut_frame", cut_frame);
+    node->get_parameter("initialization.cut_frame_num", cut_frame_num);
+    node->get_parameter("initialization.orig_odom_freq", orig_odom_freq);
+    node->get_parameter("initialization.online_refine_time", online_refine_time);
+    node->get_parameter("initialization.mean_acc_norm", mean_acc_norm);
+    node->get_parameter("initialization.data_accum_length", Init_LI->data_accum_length);
+    node->get_parameter("initialization.Rot_LI_cov", Rot_LI_cov);
+    node->get_parameter("initialization.Trans_LI_cov", Trans_LI_cov);
+    node->get_parameter("publish.path_en", path_en);
+    node->get_parameter("publish.scan_publish_en", scan_pub_en);
+    node->get_parameter("publish.dense_publish_en", dense_pub_en);
+    node->get_parameter("publish.scan_bodyframe_pub_en", scan_body_pub_en);
     node->get_parameter("runtime_pos_log_enable", runtime_pos_log);
-    node->get_parameter("pcd_save/pcd_save_en", pcd_save_en);
-    node->get_parameter("pcd_save/interval", pcd_save_interval);
+    node->get_parameter("pcd_save.pcd_save_en", pcd_save_en);
+    node->get_parameter("pcd_save.interval", pcd_save_interval);
 }
 
 int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
     std::shared_ptr<rclcpp::Node> node = std::make_shared<rclcpp::Node>("laserMapping");
-
     init_parameters(node);
-
 
     cout << "lidar_type: " << lidar_type << endl;
     cout << "LiDAR-only odometry starts." << endl;
@@ -914,22 +925,23 @@ int main(int argc, char **argv) {
 #ifdef USE_LIVOX
     if (p_pre->lidar_type == AVIA)
     {
-        auto sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, rclcpp::QoS(200000), livox_pcl_cbk);
+        sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, rclcpp::QoS(200000), livox_pcl_cbk);
     }
     else
 #endif
     {
-        auto sub_pcl_pc_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, rclcpp::QoS(200000), standard_pcl_cbk);
+        std::cout << "\n lid_topic: " << lid_topic << std::endl;
+        sub_pcl_pc_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, rclcpp::SensorDataQoS(), standard_pcl_cbk);
     }
 
-    auto sub_imu = node->create_subscription<sensor_msgs::msg::Imu>(imu_topic, rclcpp::QoS(200000), imu_cbk);
-    auto pubLaserCloudFullRes = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", rclcpp::QoS(100000));
-    auto pubLaserCloudFullRes_body = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered_body", rclcpp::QoS(100000));
-    auto pubLaserCloudEffect = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_effected", rclcpp::QoS(100000));
-    auto pubLaserCloudMap = node->create_publisher<sensor_msgs::msg::PointCloud2>("/Laser_map", rclcpp::QoS(100000));
-    auto pubOdomAftMapped = node->create_publisher<nav_msgs::msg::Odometry>("/aft_mapped_to_init", rclcpp::QoS(100000));
-    auto pubPath = node->create_publisher<nav_msgs::msg::Path>("/path", rclcpp::QoS(100000));
-    auto tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*node);
+    sub_imu = node->create_subscription<sensor_msgs::msg::Imu>(imu_topic, 10, imu_cbk);
+    pubLaserCloudFullRes = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", 20);
+    pubLaserCloudFullRes_body = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered_body", 20);
+    pubLaserCloudEffect = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_effected", 20);
+    pubLaserCloudMap = node->create_publisher<sensor_msgs::msg::PointCloud2>("/Laser_map", 20);
+    pubOdomAftMapped = node->create_publisher<nav_msgs::msg::Odometry>("/aft_mapped_to_init", 20);
+    pubPath = node->create_publisher<nav_msgs::msg::Path>("/path", 20);
+    tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*node);
 
 
 //------------------------------------------------------------------------------------------------------

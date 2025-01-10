@@ -148,8 +148,14 @@ target_link_libraries(li_init
 
 ament_target_dependencies(li_init ${dependencies})
 
-# Install targets and include directories
-install(TARGETS li_init DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY config launch rviz_cfg DESTINATION share/${PROJECT_NAME})
+# ---------------- Install --------------- #
+install(TARGETS li_init
+ DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY config launch rviz 
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()

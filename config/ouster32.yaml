@@ -1,0 +1,87 @@
+/**:
+    ros__parameters:
+        feature_extract_enable: false
+        point_filter_num: 1
+        max_iteration: 3
+        filter_size_surf: 0.5
+        filter_size_map: 0.5
+        cube_side_length: 1000.0
+        runtime_pos_log_enable: false
+        map_file_path: "./test.pcd"
+
+        common:
+            lid_topic:  "/lidar"
+            imu_topic:  "/imu/data"
+            time_sync_en: false         # ONLY turn on when external time synchronization is really not possible
+            time_offset_lidar_to_imu: 0.0 # Time offset between lidar and IMU calibrated by other algorithms, e.g. LI-Init (can be found in README).
+                                        # This param will take effect no matter what time_sync_en is. So if the time offset is not known exactly, please set as 0.0
+            
+        preprocess:
+            lidar_type: 3                # 1 for Livox serials LiDAR, 2 for Velodyne LiDAR, 3 for ouster LiDAR, 
+            scan_line: 32
+            timestamp_unit: 3                 # 0-second, 1-milisecond, 2-microsecond, 3-nanosecond.
+            blind: 1.0
+
+        mapping:
+            acc_cov: 0.5 # Isaac sim data
+            gyr_cov: 0.5 # Isaac sim data
+            # acc_cov: [5.25e-06, 4.92E-06, 4.60E-06] # real data
+            # gyr_cov: [2.02E-06, 1.61E-06, 1.76E-06] # real data
+            b_acc_cov: 0.0001
+            b_gyr_cov: 0.0001
+            fov_degree:    360.0
+            det_range:     150.0
+            extrinsic_est_en:  false      # true: enable the online estimation of IMU-LiDAR extrinsic
+            extrinsic_T: [ 0.0, 0.0, 0.05 ]
+            extrinsic_R: [1., 0., 0.,
+                        0., 1., 0.,
+                        0., 0., 1.]
+        
+        camera:
+            topic: "/camera" # all cameras publish on the same topics, distinguish by frame_id
+            pcd_topic: "/colored_cloud"
+            z_filter: 2.7 # set to something > 0 to remove the ceiling
+            time_offset: 0.0  
+            angle_per_pixel: 0.06435562966942021
+            front:
+                frame_id: "cam_front"
+                intrinsics: [819.917458045, 0.0, 1228.0,
+                            0.0, 819.917458045, 1044.0,
+                            0.0, 0.0, 1.0] # fx,0,cx,0,fy,cy,0,0,1
+                extrinsic_T: [ 0.05, 0.0, -0.05 ] # imu to camera
+                extrinsic_R: [ 0.0,  0.0,  1.0,
+                            -1.0,  0.0,  0.0,
+                            0.0, -1.0,  0.0 ]
+                fov: [ -45.0, 45.0] # not the lens fov, but rather the fov to do limit colormap
+            left:
+                frame_id: "cam_left"
+                intrinsics: [819.917458045, 0.0, 1212.0,
+                            0.0, 819.917458045, 1060.0,
+                            0.0, 0.0, 1.0] # fx,0,cx,0,fy,cy,0,0,1
+                extrinsic_T: [ 0.0, 0.05, -0.05 ] 
+                extrinsic_R: [ 1.0,  0.0,  0.0,
+                            0.0,  0.0, 1.0,
+                            0.0,  -1.0,  0.0 ]
+                fov: [ 45.0, 135.0 ]
+            right:
+                frame_id: "cam_right"
+                intrinsics: [819.917458045, 0.0, 1204.0,
+                            0.0, 819.917458045, 1028.0,
+                            0.0, 0.0, 1.0] # fx,0,cx,0,fy,cy,0,0,1
+                extrinsic_T: [ 0.0, -0.05, -0.05 ] 
+                extrinsic_R: [ -1.0,  0.0, 0.0,
+                            0.0,  0.0,  -1.0,
+                            0.0, -1.0,  0.0 ]
+                fov: [ -135.0, -45.0 ]
+
+        publish:
+            path_en:  true
+            color_en: true               # publish the color point cloud, must have scan_bodyframe_pub_en = true
+            scan_publish_en:  false      # publish the point cloud scans in global frame
+            dense_publish_en: false      # publish full lidar scan or down sampled scan
+            scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
+
+        pcd_save:
+            pcd_save_en: true
+            interval: -1                 # how many LiDAR frames saved in each pcd file; 
+                                        # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
