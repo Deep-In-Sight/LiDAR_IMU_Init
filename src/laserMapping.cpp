@@ -925,7 +925,7 @@ int main(int argc, char **argv) {
 #ifdef USE_LIVOX
     if (p_pre->lidar_type == AVIA)
     {
-        sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, rclcpp::QoS(200000), livox_pcl_cbk);
+        sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, rclcpp::SensorDataQoS(), livox_pcl_cbk);
     }
     else
 #endif
